@@ -9,7 +9,7 @@ import (
 var ()
 
 func main() {
-	client, err := hdfs.NewClient("db-linux:8020")
+	client, err := hdfs.NewClient("db-linux:8020", "root")
 	if err != nil {
 		panic(err)
 	}
