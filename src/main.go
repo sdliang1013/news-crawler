@@ -18,13 +18,14 @@ func main() {
 	craw := crawler.Crawler{}
 	// 爬取新闻
 	var newsList []schemas.News
-	newsList, err = craw.PullNews()
+	src := crawler.SrcXinhuanet
+	newsList, err = craw.PullNews(src)
 	if err != nil {
 		panic(err)
 	}
 	// 保存新闻
 	//year, month, day := time.Now().Date()
-	err = hdfsSaver.SaveToHdfs("/materials/news/test.par", newsList)
+	err = hdfsSaver.SaveToHdfs("/materials/news/"+src+".par", newsList)
 	if err != nil {
 		panic(err)
 	}
