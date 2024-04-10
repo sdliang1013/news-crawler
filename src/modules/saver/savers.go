@@ -1,54 +1,49 @@
 package saver
 
 import (
+	"context"
 	"fmt"
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/colinmarc/hdfs/v2"
-	cHdfs "news-crawler/src/caul/hdfs"
+	"github.com/google/uuid"
+	"github.com/tsuna/gohbase"
+	"github.com/tsuna/gohbase/hrpc"
 	"news-crawler/src/modules/schemas"
 )
 
 type Saver struct {
-	Client *hdfs.Client
+	Client gohbase.Client
 }
 
-func (s *Saver) Close() error {
-	return s.Client.Close()
+func (s *Saver) Close() {
+	s.Client.Close()
 }
 
-func (s *Saver) SaveToHdfs(filePath string, newsList []schemas.News) (err error) {
-	var records []arrow.Record
+func (s *Saver) SaveToHBase(newList []schemas.News) (err error) {
+	var records []*hrpc.Mutate
 	// 将新闻数据转换为 Parquet 格式
-	schema := schemas.NewsToArrowSchema(nil)
-	records, err = s.toRecords(schema, newsList)
+	records, err = s.toRecords(newList)
 	if err != nil {
 		return
 	}
 	// 保存数据
-	var file *hdfs.FileWriter
-	file, err = cHdfs.FileWriter(s.Client, filePath)
-	if err != nil {
-		return
-	}
-	defer func(file *hdfs.FileWriter) {
-		_ = file.Close()
-	}(file)
-	err = cHdfs.SaveFile(file, schema, records)
-	if err != nil {
-		return
+	for _, record := range records {
+		_, err = s.Client.Put(record)
+		if err != nil {
+			return err
+		}
 	}
 	fmt.Println("新闻信息已保存到 HDFS 中")
 	return
 }
 
-func (s *Saver) toRecords(schema *arrow.Schema, newsList []schemas.News) (records []arrow.Record, err error) {
-	recordBuilder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
-	defer recordBuilder.Release()
-	var record arrow.Record
+func (s *Saver) toRecords(newsList []schemas.News) (records []*hrpc.Mutate, err error) {
+	var record *hrpc.Mutate
+	var random uuid.UUID
 	for _, news := range newsList {
-		record, err = news.ToArrowRecord(recordBuilder)
+		random, err = uuid.NewRandom()
+		if err != nil {
+			return
+		}
+		record, err = hrpc.NewPutStr(context.Background(), schemas.TabNews, random.String(), news.ToHBaseValues())
 		if err != nil {
 			return
 		}
