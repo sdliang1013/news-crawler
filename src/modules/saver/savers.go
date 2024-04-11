@@ -18,25 +18,26 @@ func (s *Saver) Close() {
 }
 
 func (s *Saver) SaveToHBase(newList []schemas.News) (err error) {
-	var records []*hrpc.Mutate
+	var records []hrpc.Call
 	// 将新闻数据转换为 Parquet 格式
 	records, err = s.toRecords(newList)
 	if err != nil {
 		return
 	}
 	// 保存数据
-	for _, record := range records {
-		_, err = s.Client.Put(record)
-		if err != nil {
-			return err
+	res, ok := s.Client.SendBatch(context.Background(), records)
+	if !ok {
+		if len(res) > 0 {
+			err = res[0].Error
 		}
+		return err
 	}
-	fmt.Println("新闻信息已保存到 HDFS 中")
+	fmt.Println("新闻信息已保存到 HBase 中")
 	return
 }
 
-func (s *Saver) toRecords(newsList []schemas.News) (records []*hrpc.Mutate, err error) {
-	var record *hrpc.Mutate
+func (s *Saver) toRecords(newsList []schemas.News) (records []hrpc.Call, err error) {
+	var record hrpc.Call
 	var random uuid.UUID
 	for _, news := range newsList {
 		random, err = uuid.NewRandom()
