@@ -21,5 +21,6 @@
 go.work
 
 .idea
+.vscode
 bin
 pkg
